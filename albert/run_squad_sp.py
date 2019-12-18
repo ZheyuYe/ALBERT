@@ -22,17 +22,22 @@ import json
 import math
 import os
 import random
-from albert import optimization, modeling, tokenization
+import gc
+
 import numpy as np
 import six
 from six.moves import map
 from six.moves import range
 import tensorflow as tf
+
+from albert import modeling
+from albert import optimization
+from albert import tokenization
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import data as contrib_data
 from tensorflow.contrib import tpu as contrib_tpu
-from tensorflow import estimator
 
+SPIECE_UNDERLINE = u'▁'
 
 # pylint: disable=g-import-not-at-top
 if six.PY2:
@@ -46,6 +51,11 @@ flags = tf.flags
 FLAGS = flags.FLAGS
 
 ## Required parameters
+##
+flags.DEFINE_string(
+    "pretrained_model_dir", None,
+    "the directory path of the pretrained model which includes the config file, vocabulary, spm_model_file and init_checkpoint")
+
 flags.DEFINE_string(
     "albert_config_file", None,
     "The config json file corresponding to the pre-trained ALBERT model. "
@@ -70,7 +80,7 @@ flags.DEFINE_string(
     "predict_file", None,
     "SQuAD json for predictions. E.g., dev-v1.1.json or test-v1.1.json")
 
-flags.DEFINE_string("train_feature_file", None,
+flags.DEFINE_string("feature_file", None,
                     "training feature file.")
 
 flags.DEFINE_string(
@@ -338,7 +348,30 @@ def _convert_index(index, pos, m=None, is_start=True):
 def convert_examples_to_features(examples, tokenizer, max_seq_length,
                                  doc_stride, max_query_length, is_training,
                                  output_fn):
-  """Loads a data file into a list of `InputBatch`s."""
+  """Loads a data file into a list of `InputBatch`s.
+
+  *** Example ***
+  paragraph_text="Menzies called a conference of conservative parties and other groups opposed to the ruling Australian Labor Party, which met in Canberra on 13 October 1944 and again in Albury, New South Wales in December 1944. From 1942 onward Menzies had maintained his public profile with his series of "The Forgotten People" radio talks–similar to Franklin D. Roosevelt's "fireside chats" of the 1930s–in which he spoke of the middle class as the "backbone of Australia" but as nevertheless having been "taken for granted" by political parties."
+
+  splited by dash '-'
+  para_tokens = "▁menzies▁called▁a▁conference▁of▁conservative▁parties▁and▁other▁groups▁opposed▁to▁the▁ruling▁australian▁labor▁party,▁which▁met▁in▁canberra▁on▁13▁october▁1944▁and▁again▁in▁albury,▁new▁south▁wales▁in▁december▁1944.▁from▁1942▁onward▁menzies▁had▁maintained▁his▁public▁profile▁with▁his▁series▁of▁"the▁forgotten▁people"▁radio▁talks–similar▁to▁franklin▁d.▁roosevelt's▁"fireside▁chats"▁of▁the▁1930s–in▁which▁he▁spoke▁of▁the▁middle▁class▁as▁the▁"backbone▁of▁australia"▁but▁as▁nevertheless▁having▁been▁"taken▁for▁granted"▁by▁political▁parties."
+
+  tok_cat_text = " menzies called a conference of conservative parties and other groups opposed to the ruling australian labor party, which met in canberra on 13 october 1944 and again in albury, new south wales in december 1944. from 1942 onward menzies had maintained his public profile with his series of "the forgotten people" radio talks–similar to franklin d. roosevelt's "fireside chats" of the 1930s–in which he spoke of the middle class as the "backbone of australia" but as nevertheless having been "taken for granted" by political parties."
+
+  unique_id: 1000000000
+  example_index: 0
+  doc_span_index: 0
+  tok_start_to_orig_index: 0 7 14 16 27 30 43 51 55 61 68 76 79 83 90 101 107 113 114 120 124 127 136 139 142 150 155 159 165 168 171 175 176 180 186 192 195 204 209 210 215 220 227 235 239 250 254 261 269 274 278 285 288 289 290 293 303 310 311 317 323 324 331 334 343 344 345 346 356 357 358 359 360 364 368 373 374 375 378 382 387 388 389 391 397 400 406 409 413 420 426 429 433 434 435 439 443 446 456 457 461 464 477 484 489 490 491 495 496 500 508 509 512 522 530
+  tok_end_to_orig_index: 6 13 15 26 29 42 50 54 60 67 75 78 82 89 100 106 112 113 119 123 126 135 138 141 149 154 158 164 167 170 174 175 179 185 191 194 203 208 209 214 219 226 234 238 249 253 260 268 273 277 284 287 288 289 292 302 309 310 316 322 323 330 333 342 343 344 345 355 356 357 358 359 363 367 372 373 374 377 381 386 387 388 390 396 399 405 408 412 419 425 428 432 433 434 438 442 445 455 456 460 463 476 483 488 489 490 494 495 499 507 508 511 521 529 530
+  token_is_max_context: 14:True 15:True 16:True 17:True 18:True 19:True 20:True 21:True 22:True 23:True 24:True 25:True 26:True 27:True 28:True 29:True 30:True 31:True 32:True 33:True 34:True 35:True 36:True 37:True 38:True 39:True 40:True 41:True 42:True 43:True 44:True 45:True 46:True 47:True 48:True 49:True 50:True 51:True 52:True 53:True 54:True 55:True 56:True 57:True 58:True 59:True 60:True 61:True 62:True 63:True 64:True 65:True 66:True 67:True 68:True 69:True 70:True 71:True 72:True 73:True 74:True 75:True 76:True 77:True 78:True 79:True 80:True 81:True 82:True 83:True 84:True 85:True 86:True 87:True 88:True 89:True 90:True 91:True 92:True 93:True 94:True 95:True 96:True 97:True 98:True 99:True 100:True 101:True 102:True 103:True 104:True 105:True 106:True 107:True 108:True 109:True 110:True 111:True 112:True 113:True 114:True 115:True 116:True 117:True 118:True 119:True 120:True 121:True 122:True 123:True 124:True 125:True 126:True 127:True 128:True
+  input_pieces: [CLS] ▁where ▁was ▁the ▁second ▁anti - labor ▁party ▁held ▁in ▁1944 ? [SEP] ▁menzies ▁called ▁a ▁conference ▁of ▁conservative ▁parties ▁and ▁other ▁groups ▁opposed ▁to ▁the ▁ruling ▁australian ▁labor ▁party , ▁which ▁met ▁in ▁canberra ▁on ▁13 ▁october ▁1944 ▁and ▁again ▁in ▁al bury , ▁new ▁south ▁wales ▁in ▁december ▁1944 . ▁from ▁1942 ▁onward ▁menzies ▁had ▁maintained ▁his ▁public ▁profile ▁with ▁his ▁series ▁of ▁ " the ▁forgotten ▁people " ▁radio ▁talks – similar ▁to ▁franklin ▁ d . ▁roosevelt ' s ▁ " fire side ▁chat s " ▁of ▁the ▁1930 s – in ▁which ▁he ▁spoke ▁of ▁the ▁middle ▁class ▁as ▁the ▁ " back bone ▁of ▁australia " ▁but ▁as ▁nevertheless ▁having ▁been ▁ " take n ▁for ▁granted " ▁by ▁political ▁parties . [SEP] <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad> <pad>
+  input_ids: 2 113 23 14 153 1082 8 20906 346 269 19 2921 60 3 28899 227 21 1199 16 3002 2575 17 89 1170 3499 20 14 5716 933 2583 346 15 56 798 19 14015 27 539 311 2921 17 188 19 493 3166 15 78 180 1791 19 356 2921 9 37 3148 18549 28899 41 3926 33 317 5296 29 33 231 16 13 7 124 5562 148 7 603 7837 10 19107 20 4740 13 43 9 8440 22 18 13 7 5929 1416 6615 18 7 16 14 2215 18 10 108 56 24 1977 16 14 772 718 28 14 13 7 1958 8640 16 750 7 47 28 5715 452 74 13 7 4386 103 26 2743 7 34 675 2575 9 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  input_mask: 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  segment_ids: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+  start_position: 43
+  end_position: 48
+  answer: albury, new south wales
+  """
 
   cnt_pos, cnt_neg = 0, 0
   unique_id = 1000000000
@@ -355,10 +388,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tokenizer.sp_model,
         tokenization.preprocess_text(
             example.question_text, lower=FLAGS.do_lower_case))
-    # print(tokenization.encode_pieces(tokenizer.sp_model,
-    #                                  tokenization.preprocess_text(example.question_text,
-    #                                                               lower=FLAGS.do_lower_case)))
-    # print(query_tokens)
+
     if len(query_tokens) > max_query_length:
       query_tokens = query_tokens[0:max_query_length]
 
@@ -368,39 +398,51 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tokenization.preprocess_text(
             example.paragraph_text, lower=FLAGS.do_lower_case),
         return_unicode=False)
+    # As https://github.com/google-research/ALBERT/issues/6
     para_tokens = [six.ensure_text(token, "utf-8") for token in para_tokens]
 
     chartok_to_tok_index = []
     tok_start_to_chartok_index = []
     tok_end_to_chartok_index = []
     char_cnt = 0
-    # tok_cat_text = b''
-    tok_cat_text = ''
+    # using binary to deal with number such as b'\xe2\x96\x8112' for '_12'
     for i, token in enumerate(para_tokens):
+      # new_token = token.decode("utf-8")
+      # SPIECE_UNDERLINE = u"▁".encode("utf-8")
       # new_token = six.ensure_binary(token).replace(
-      #     tokenization.SPIECE_UNDERLINE, b" ")
+          # tokenization.SPIECE_UNDERLINE, b" ")
       new_token = token
       chartok_to_tok_index.extend([i] * len(new_token))
       tok_start_to_chartok_index.append(char_cnt)
       char_cnt += len(new_token)
       tok_end_to_chartok_index.append(char_cnt - 1)
-      tok_cat_text += new_token
-    # print(type(para_tokens[0]))
-    # tok_cat_text = "".join(para_tokens).replace(
-    #     tokenization.SPIECE_UNDERLINE, b" ")
-    # tok_cat_text = tok_cat_text.decode('utf-8')
+
+    for i in range(len(para_tokens)):
+        if type(para_tokens[i]) != str:
+            para_tokens[i] = str(para_tokens[i], 'utf-8')
+
+    #restore the tokens into a single string
+    #and m=n+1 cause the there will a sapce in the begining of tok_cat_text
+    tok_cat_text = "".join(para_tokens).replace(
+        tokenization.SPIECE_UNDERLINE.decode("utf-8"), " ")
     n, m = len(paragraph_text), len(tok_cat_text)
+
     if n > max_n or m > max_m:
       max_n = max(n, max_n)
       max_m = max(m, max_m)
       f = np.zeros((max_n, max_m), dtype=np.float32)
 
+    # match matrix that using 2 to present match, 1 for in the tolerance of max_dist
     g = {}
 
     def _lcs_match(max_dist, n=n, m=m):
       """Longest-common-substring algorithm."""
+        # calculate the mismatch between paragraph_text and tok_cat_text,
+        # if the mismatch is more than 0.2% of the total length
+        # then double the max_dist
       f.fill(0)
       g.clear()
+      gc.collect()
 
       ### longest common sub sequence
       # f[i, j] = max(f[i - 1, j], f[i, j - 1], f[i - 1, j - 1] + match(i, j))
@@ -434,6 +476,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
       if f[n - 1, m - 1] > 0.8 * n: break
       max_dist *= 2
 
+    #find the perfect match from original token index to tokenizerd index
     orig_to_chartok_index = [None] * n
     chartok_to_orig_index = [None] * m
     i, j = n - 1, m - 1
@@ -447,13 +490,10 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         j = j - 1
       else:
         i = i - 1
+
     if (all(v is None for v in orig_to_chartok_index) or
         f[n - 1, m - 1] < 0.8 * n):
       tf.logging.info("MISMATCH DETECTED!")
-      tf.logging.info('Example index:', example_index)
-      tf.logging.info(paragraph_text)
-      tf.logging.info(tok_cat_text)
-      tf.logging.info(orig_to_chartok_index)
       continue
 
     tok_start_to_orig_index = []
@@ -811,29 +851,20 @@ def model_fn_builder(albert_config, init_checkpoint, learning_rate,
 
       train_op = optimization.create_optimizer(
           total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
-      if use_tpu:
-          output_spec = contrib_tpu.TPUEstimatorSpec(
-              mode=mode,
-              loss=total_loss,
-              train_op=train_op,
-              scaffold_fn=scaffold_fn)
-      else:
-          output_spec = tf.estimator.EstimatorSpec(
-              mode=mode,
-              loss=total_loss,
-              train_op=train_op)
+
+      output_spec = contrib_tpu.TPUEstimatorSpec(
+          mode=mode,
+          loss=total_loss,
+          train_op=train_op,
+          scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.PREDICT:
       predictions = {
           "unique_ids": unique_ids,
           "start_logits": start_logits,
           "end_logits": end_logits,
       }
-      if use_tpu:
-          output_spec = contrib_tpu.TPUEstimatorSpec(
-              mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
-      else:
-          output_spec = tf.estimator.EstimatorSpec(
-              mode=mode, predictions=predictions)
+      output_spec = contrib_tpu.TPUEstimatorSpec(
+          mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
     else:
       raise ValueError(
           "Only TRAIN and PREDICT modes are supported: %s" % (mode))
@@ -843,7 +874,7 @@ def model_fn_builder(albert_config, init_checkpoint, learning_rate,
   return model_fn
 
 
-def input_fn_builder(input_file, seq_length, is_training, drop_remainder, batch_size):
+def input_fn_builder(input_file, seq_length, is_training, drop_remainder):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
   name_to_features = {
@@ -871,9 +902,10 @@ def input_fn_builder(input_file, seq_length, is_training, drop_remainder, batch_
 
     return example
 
-  def input_fn():
+  def input_fn(params):
     """The actual input function."""
-    # batch_size = params["batch_size"]
+    batch_size = params["batch_size"]
+
     # For training, we want a lot of parallel reading and shuffling.
     # For eval, we want no shuffling and parallel reading doesn't matter.
     d = tf.data.TFRecordDataset(input_file)
@@ -1150,8 +1182,9 @@ class FeatureWriter(object):
 
 def validate_flags_or_throw(albert_config):
   """Validate the input FLAGS or throw an exception."""
+  init_checkpoint = FLAGS.pretrained_model_dir + 'model.ckpt'
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
-                                                FLAGS.init_checkpoint)
+                                                init_checkpoint)
 
   if not FLAGS.do_train and not FLAGS.do_predict:
     raise ValueError("At least one of `do_train` or `do_predict` must be True.")
@@ -1179,16 +1212,17 @@ def validate_flags_or_throw(albert_config):
 
 def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
-
-  albert_config = modeling.AlbertConfig.from_json_file(FLAGS.albert_config_file)
+  albert_config = modeling.AlbertConfig.from_json_file(FLAGS.pretrained_model_dir + 'albert_config.json')
 
   validate_flags_or_throw(albert_config)
 
   tf.gfile.MakeDirs(FLAGS.output_dir)
 
+  init_checkpoint = FLAGS.pretrained_model_dir + 'model.ckpt'
+
   tokenizer = tokenization.FullTokenizer(
-      vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case,
-      spm_model_file=FLAGS.spm_model_file)
+      vocab_file=FLAGS.pretrained_model_dir + '30k-clean.vocab', do_lower_case=FLAGS.do_lower_case,
+      spm_model_file=FLAGS.pretrained_model_dir + '30k-clean.model')
 
   tpu_cluster_resolver = None
   if FLAGS.use_tpu and FLAGS.tpu_name:
@@ -1196,24 +1230,15 @@ def main(_):
         FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
   is_per_host = contrib_tpu.InputPipelineConfig.PER_HOST_V2
-  if FLAGS.use_tpu:
-      run_config = contrib_tpu.RunConfig(
-          cluster=tpu_cluster_resolver,
-          master=FLAGS.master,
-          model_dir=FLAGS.output_dir,
-          save_checkpoints_steps=FLAGS.save_checkpoints_steps,
-          tpu_config=contrib_tpu.TPUConfig(
-              iterations_per_loop=FLAGS.iterations_per_loop,
-              num_shards=FLAGS.num_tpu_cores,
-              per_host_input_for_training=is_per_host))
-  else:
-      session_config = tf.ConfigProto()
-      session_config.gpu_options.allow_growth = True
-      session_config.gpu_options.per_process_gpu_memory_fraction = 0.9
-      run_config = tf.estimator.RunConfig(
-          session_config=session_config,
-          model_dir=FLAGS.output_dir,
-          save_checkpoints_steps=FLAGS.save_checkpoints_steps)
+  run_config = contrib_tpu.RunConfig(
+      cluster=tpu_cluster_resolver,
+      master=FLAGS.master,
+      model_dir=FLAGS.output_dir,
+      save_checkpoints_steps=FLAGS.save_checkpoints_steps,
+      tpu_config=contrib_tpu.TPUConfig(
+          iterations_per_loop=FLAGS.iterations_per_loop,
+          num_shards=FLAGS.num_tpu_cores,
+          per_host_input_for_training=is_per_host))
 
   train_examples = None
   num_train_steps = None
@@ -1232,7 +1257,7 @@ def main(_):
 
   model_fn = model_fn_builder(
       albert_config=albert_config,
-      init_checkpoint=FLAGS.init_checkpoint,
+      init_checkpoint=init_checkpoint,
       learning_rate=FLAGS.learning_rate,
       num_train_steps=num_train_steps,
       num_warmup_steps=num_warmup_steps,
@@ -1241,26 +1266,22 @@ def main(_):
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
-  if FLAGS.use_tpu:
-      estimator = contrib_tpu.TPUEstimator(
-          use_tpu=True,
-          model_fn=model_fn,
-          config=run_config,
-          train_batch_size=FLAGS.train_batch_size,
-          predict_batch_size=FLAGS.predict_batch_size)
-  else:
-      estimator = tf.estimator.Estimator(
-          model_fn=model_fn,
-          config=run_config)
+  estimator = contrib_tpu.TPUEstimator(
+      use_tpu=FLAGS.use_tpu,
+      model_fn=model_fn,
+      config=run_config,
+      train_batch_size=FLAGS.train_batch_size,
+      predict_batch_size=FLAGS.predict_batch_size)
 
   if FLAGS.do_train:
     # We write to a temporary file to avoid storing very large constant tensors
     # in memory.
 
 
-    if not tf.gfile.Exists(FLAGS.train_feature_file):
+    train_feature_file = os.path.join(FLAGS.feature_file + "_train.tf_record")
+    if not tf.gfile.Exists(train_feature_file):
       train_writer = FeatureWriter(
-          filename=os.path.join(FLAGS.train_feature_file), is_training=True)
+          filename=train_feature_file, is_training=True)
       convert_examples_to_features(
           examples=train_examples,
           tokenizer=tokenizer,
@@ -1279,26 +1300,28 @@ def main(_):
     del train_examples
 
     train_input_fn = input_fn_builder(
-        input_file=FLAGS.train_feature_file,
+        input_file=train_feature_file,
         seq_length=FLAGS.max_seq_length,
         is_training=True,
-        drop_remainder=True,
-        batch_size=FLAGS.train_batch_size)
+        drop_remainder=True)
     estimator.train(input_fn=train_input_fn, max_steps=num_train_steps)
 
   if FLAGS.do_predict:
     eval_examples = read_squad_examples(
         input_file=FLAGS.predict_file, is_training=False)
 
-    if (tf.gfile.Exists(FLAGS.predict_feature_file) and tf.gfile.Exists(
-        FLAGS.predict_feature_left_file)):
+    predict_feature_file = os.path.join(FLAGS.feature_file + "_dev.tf_record")
+    predict_feature_left_file = os.path.join(FLAGS.feature_file + "_dev_left")
+
+    if (tf.gfile.Exists(predict_feature_file) and tf.gfile.Exists(
+        predict_feature_left_file)):
       tf.logging.info("Loading eval features from {}".format(
-         FLAGS.predict_feature_left_file))
-      with tf.gfile.Open(FLAGS.predict_feature_left_file, 'rb') as fin:
+         predict_feature_left_file))
+      with tf.gfile.Open(predict_feature_left_file, 'rb') as fin:
         eval_features = pickle.load(fin)
     else:
       eval_writer = FeatureWriter(
-          filename=FLAGS.predict_feature_file, is_training=False)
+          filename=predict_feature_file, is_training=False)
       eval_features = []
 
       def append_feature(feature):
@@ -1315,7 +1338,7 @@ def main(_):
           output_fn=append_feature)
       eval_writer.close()
 
-      with tf.gfile.Open(FLAGS.predict_feature_left_file, 'wb') as fout:
+      with tf.gfile.Open(predict_feature_left_file, 'wb') as fout:
         pickle.dump(eval_features, fout)
 
     tf.logging.info("***** Running predictions *****")
@@ -1326,11 +1349,10 @@ def main(_):
     all_results = []
 
     predict_input_fn = input_fn_builder(
-        input_file=FLAGS.predict_feature_file,
+        input_file=predict_feature_file,
         seq_length=FLAGS.max_seq_length,
         is_training=False,
-        drop_remainder=False,
-        batch_size=1)
+        drop_remainder=False)
 
     # If running eval on the TPU, you will need to specify the number of
     # steps.
@@ -1359,7 +1381,8 @@ def main(_):
 
 
 if __name__ == "__main__":
-  flags.mark_flag_as_required("vocab_file")
-  flags.mark_flag_as_required("albert_config_file")
+  # flags.mark_flag_as_required("vocab_file")
+  flags.mark_flag_as_required("pretrained_model_dir")
+  # flags.mark_flag_as_required("albert_config_file")
   flags.mark_flag_as_required("output_dir")
   tf.app.run()
