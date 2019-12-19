@@ -40,6 +40,9 @@ if six.PY2:
 else:
   import pickle
 # pylint: enable=g-import-not-at-top
+#
+gcs_json_file = '/content/albert-zheyu.json'
+gcs_utils.explicit(gcs_json_file)
 
 flags = tf.flags
 
@@ -172,10 +175,6 @@ flags.DEFINE_integer("start_n_top", 5, "beam size for the start positions.")
 flags.DEFINE_integer("end_n_top", 5, "beam size for the end positions.")
 
 flags.DEFINE_float("dropout_prob", 0.1, "dropout probability.")
-
-tf.flags.DEFINE_string(
-    "gcs_json_file", None,
-    "[Optional] Auth config file for the Google Cloud Storage")
 
 
 def validate_flags_or_throw(albert_config):

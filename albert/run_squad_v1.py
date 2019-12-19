@@ -43,6 +43,9 @@ flags = tf.flags
 
 FLAGS = flags.FLAGS
 
+gcs_json_file = '/content/albert-zheyu.json'
+gcs_utils.explicit(gcs_json_file)
+
 ## Required parameters
 flags.DEFINE_string(
     "albert_config_file", None,
@@ -164,10 +167,6 @@ flags.DEFINE_integer(
     "num_tpu_cores", 8,
     "Only used if `use_tpu` is True. Total number of TPU cores to use.")
 
-tf.flags.DEFINE_string(
-    "gcs_json_file", None,
-    "[Optional] Auth config file for the Google Cloud Storage")
-
 
 def validate_flags_or_throw(albert_config):
   """Validate the input FLAGS or throw an exception."""
@@ -200,7 +199,6 @@ def validate_flags_or_throw(albert_config):
 
 def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
-  gcs_utils.explicit(FLAGS.gcs_json_file)
 
   albert_config = modeling.AlbertConfig.from_json_file(FLAGS.albert_config_file)
 
