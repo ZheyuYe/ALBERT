@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 import os
 from albert import optimization, classifier_utils, tokenization
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tensorflow_hub as hub
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import tpu as contrib_tpu
