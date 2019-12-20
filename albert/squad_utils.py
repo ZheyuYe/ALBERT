@@ -583,7 +583,7 @@ def _get_best_indexes(logits, n_best_size):
 
 
 def _compute_softmax(scores):
-  """Compute softmax probability over raw logits."""
+  """Compute softmax probability over raw logits. Only supports the process of prediction"""
   if not scores:
     return []
 
@@ -715,6 +715,7 @@ def create_v1_model(albert_config, is_training, input_ids, input_mask,
       use_one_hot_embeddings=use_one_hot_embeddings)
 
   final_hidden = model.get_sequence_output()
+  # `sequence_output` shape = [batch_size, seq_length, hidden_size].
 
   final_hidden_shape = modeling.get_shape_list(final_hidden, expected_rank=3)
   batch_size = final_hidden_shape[0]
@@ -735,6 +736,7 @@ def create_v1_model(albert_config, is_training, input_ids, input_mask,
 
   logits = tf.reshape(logits, [batch_size, seq_length, 2])
   logits = tf.transpose(logits, [2, 0, 1])
+  # [2, batch_size, seq_length]
 
   unstacked_logits = tf.unstack(logits, axis=0)
 
@@ -800,11 +802,17 @@ def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
       seq_length = modeling.get_shape_list(input_ids)[1]
 
       def compute_loss(logits, positions):
+        # positions (batch_size,)
         one_hot_positions = tf.one_hot(
-            positions, depth=seq_length, dtype=tf.float32)
-        log_probs = tf.nn.log_softmax(logits, axis=-1)
+            positions, depth=seq_length, dtype=tf.float32) #(batch_size,seq_length)
+        log_probs = tf.nn.log_softmax(logits, axis=-1)  #(batch_size,seq_length)
         loss = -tf.reduce_mean(
             tf.reduce_sum(one_hot_positions * log_probs, axis=-1))
+        return loss
+
+      def compute_loss_sparse(logits,positions):
+        log_probs = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=positions,logits=logits)
+        loss = tf.reduce_mean(log_probs, axis=-1)
         return loss
 
       start_positions = features["start_positions"]
