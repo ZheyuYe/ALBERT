@@ -43,4 +43,4 @@ sudo python3 -m albert.run_classifier \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
     --save_checkpoints_steps=100 \
-    2>&1 | tee ${CURRENT_PWD}/${TASK}_${ALBERT_DIR}_v${VERSION}.log
+    2>&1 | tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log

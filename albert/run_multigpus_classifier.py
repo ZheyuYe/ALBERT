@@ -32,6 +32,8 @@ from tensorflow.python.estimator.run_config import RunConfig
 from tensorflow.python.estimator.estimator import Estimator
 import numpy as np
 import time
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
 
 class TimeHistory(tf.estimator.SessionRunHook):
     def __init__(self):
@@ -48,9 +50,9 @@ flags = tf.flags
 
 FLAGS = flags.FLAGS
 # set up the dynamic gpu usage
-config = tf.ConfigProto()
+config = ConfigProto()
 config.gpu_options.allow_growth = True
-session = tf.Session(config=config)
+session = InteractiveSession(config=config)
 
 ## Required parameters
 flags.DEFINE_string(
