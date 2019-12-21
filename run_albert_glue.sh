@@ -39,8 +39,8 @@ sudo python3 -m albert.run_classifier \
     --warmup_step=${WPSP} \
     --train_batch_size=${BS} \
     --learning_rate=${LR} \
-    --albert_config_file=${STORAGE_BUCKET}/albert_model/${ALBERT_DIR}_v${VERSION}/albert_config.json \
-    --init_checkpoint=${STORAGE_BUCKET}/albert_model/${ALBERT_DIR}_v${VERSION}/model.ckpt \
+    --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/assets/albert_config.json \
+    --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/variables/variables \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
     --save_checkpoints_steps=100 \
