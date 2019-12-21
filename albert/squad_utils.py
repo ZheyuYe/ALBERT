@@ -818,8 +818,8 @@ def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
       start_positions = features["start_positions"]
       end_positions = features["end_positions"]
 
-      start_loss = compute_loss(start_logits, start_positions)
-      end_loss = compute_loss(end_logits, end_positions)
+      start_loss = compute_loss_sparse(start_logits, start_positions)
+      end_loss = compute_loss_sparse(end_logits, end_positions)
 
       total_loss = (start_loss + end_loss) / 2.0
 

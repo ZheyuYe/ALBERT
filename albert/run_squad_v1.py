@@ -39,12 +39,12 @@ else:
   import pickle
 # pylint: enable=g-import-not-at-top
 
+gcs_json_file = '/content/albert-zheyu.json'
+gcs_utils.explicit(gcs_json_file)
+
 flags = tf.flags
 
 FLAGS = flags.FLAGS
-
-gcs_json_file = '/content/albert-zheyu.json'
-gcs_utils.explicit(gcs_json_file)
 
 ## Required parameters
 flags.DEFINE_string(

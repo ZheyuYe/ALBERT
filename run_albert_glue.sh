@@ -23,7 +23,6 @@ pip3 install -r requirements.txt
 
 set +x
 
-#sudo CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
 sudo python3 -m albert.run_classifier \
     --do_train=True \
     --do_eval=True \
@@ -39,8 +38,8 @@ sudo python3 -m albert.run_classifier \
     --warmup_step=${WPSP} \
     --train_batch_size=${BS} \
     --learning_rate=${LR} \
-    --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/assets/albert_config.json \
-    --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/variables/variables \
+    --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
+    --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
     --save_checkpoints_steps=100 \

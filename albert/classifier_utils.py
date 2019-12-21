@@ -21,7 +21,7 @@ from __future__ import print_function
 import collections
 import csv
 import os
-from albert import optimization, modeling, tokenization
+from albert import optimization, modeling, tokenization, custom_optimization
 import tensorflow.compat.v1 as tf
 from tensorflow.contrib import data as contrib_data
 from tensorflow.contrib import metrics as contrib_metrics
@@ -639,15 +639,17 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
   else:
     label_id = example.label
 
-  if ex_index < 5:
-    tf.logging.info("*** Example ***")
-    tf.logging.info("guid: %s" % (example.guid))
-    tf.logging.info("tokens: %s" % " ".join(
-        [tokenization.printable_text(x) for x in tokens]))
     tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
     tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-    tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-    tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
+  # if ex_index < 5:
+  #   tf.logging.info("*** Example ***")
+  #   tf.logging.info("guid: %s" % (example.guid))
+  #   tf.logging.info("tokens: %s" % " ".join(
+  #       [tokenization.printable_text(x) for x in tokens]))
+  #   tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+  #   tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+  #   tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+  #   tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
 
   feature = InputFeatures(
       input_ids=input_ids,
@@ -816,7 +818,7 @@ def create_model(albert_config, is_training, input_ids, input_mask, segment_ids,
 
 def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
                      num_train_steps, num_warmup_steps, use_tpu,
-                     use_one_hot_embeddings, task_name, optimizer="adamw"):
+                     use_one_hot_embeddings, task_name, customized=False, optimizer="adamw"):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -869,16 +871,29 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
 
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
+      train_op = None
+      if customized:
+          train_op = custom_optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu)
+      else:
+          train_op = optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu,optimizer)
+      if use_tpu:
+          train_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          train_spec =tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+          )
+      return train_spec
 
-      train_op = optimization.create_optimizer(
-          total_loss, learning_rate, num_train_steps, num_warmup_steps,
-          use_tpu, optimizer)
 
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          loss=total_loss,
-          train_op=train_op,
-          scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
       if task_name not in ["sts-b", "cola"]:
         def metric_fn(per_example_loss, label_ids, logits, is_real_example):
@@ -893,6 +908,7 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
               "eval_loss": loss,
           }
       elif task_name == "sts-b":
+
         def metric_fn(per_example_loss, label_ids, logits, is_real_example):
           """Compute Pearson correlations for STS-B."""
           # Display labels and predictions
@@ -914,9 +930,10 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
 
           return {"pred": concat1, "label_ids": concat2, "pearson": pearson,
                   "MSE": mse, "eval_loss": loss,}
+
       elif task_name == "cola":
         def metric_fn(per_example_loss, label_ids, logits, is_real_example):
-          """Compute Matthew's correlations for STS-B."""
+          """Compute Matthew's correlations for CoLA."""
           predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
           # https://en.wikipedia.org/wiki/Matthews_correlation_coefficient
           tp, tp_op = tf.metrics.true_positives(
@@ -945,29 +962,46 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
           return {"matthew_corr": (mcc, tf.group(tp_op, tn_op, fp_op, fn_op)),
                   "eval_accuracy": accuracy, "eval_loss": loss,}
 
-      eval_metrics = (metric_fn,
-                      [per_example_loss, label_ids, logits, is_real_example])
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          loss=total_loss,
-          eval_metrics=eval_metrics,
-          scaffold_fn=scaffold_fn)
+      metric_args = [per_example_loss, label_ids,
+                     logits, is_real_example]
+
+      if use_tpu:
+          eval_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              eval_metrics=(metric_fn, metric_args),
+              scaffold_fn=scaffold_fn)
+      else:
+          eval_spec = tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              eval_metric_ops=metric_fn(*metric_args))
+
+      return eval_spec
+
     else:
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          predictions={
-              "probabilities": probabilities,
-              "predictions": predictions
-          },
-          scaffold_fn=scaffold_fn)
-    return output_spec
+
+      if use_tpu:
+          output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+              mode=mode,
+              predictions={
+                  "probabilities": probabilities,
+                  "predictions": predictions
+              },
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          output_spec =tf.estimator.EstimatorSpec(
+              mode=mode, predictions=predictions)
+
+      return output_spec
 
   return model_fn
 
 
 # This function is not used by this file but is still used by the Colab and
 # people who depend on it.
-def input_fn_builder(features, seq_length, is_training, drop_remainder):
+def input_fn_builder(features, seq_length, is_training, drop_remainder, batch_size):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
   all_input_ids = []
@@ -983,7 +1017,7 @@ def input_fn_builder(features, seq_length, is_training, drop_remainder):
 
   def input_fn(params):
     """The actual input function."""
-    batch_size = params["batch_size"]
+    #batch_size = params["batch_size"]
 
     num_examples = len(features)
 

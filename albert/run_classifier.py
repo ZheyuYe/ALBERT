@@ -25,12 +25,12 @@ import tensorflow.compat.v1 as tf
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import tpu as contrib_tpu
 
-gcs_json_file = '/content/albert-zheyu.json'
-gcs_utils.explicit(gcs_json_file)
-
 flags = tf.flags
 
 FLAGS = flags.FLAGS
+
+gcs_json_file = '/content/albert-zheyu.json'
+gcs_utils.explicit(gcs_json_file)
 
 ## Required parameters
 flags.DEFINE_string(
