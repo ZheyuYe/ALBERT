@@ -209,8 +209,12 @@ def main(_):
           per_host_input_for_training=is_per_host))
 
   train_examples = None
+  num_train_steps  =  None
+  num_warmup_steps = None
   if FLAGS.do_train:
     train_examples = processor.get_train_examples(FLAGS.data_dir)
+    num_train_steps = FLAGS.train_step
+    num_warmup_steps = FLAGS.warmup_step
   model_fn = classifier_utils.model_fn_builder(
       albert_config=albert_config,
       num_labels=len(label_list),
@@ -334,6 +338,13 @@ def main(_):
       best_perf = -1
       checkpoint_path = None
     writer = tf.gfile.GFile(output_eval_file, "w")
+    writer.write("===== Hyperparameters =====\n")
+    writer.write("Training batch size: {}\n".format(FLAGS.train_batch_size))
+    writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))
+    writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
+    if num_train_steps and num_warmup_steps:
+        writer.write("Training steps: {}\n".format(num_train_steps))
+        writer.write("Warmup steps: {}\n".format(num_warmup_steps))
     while global_step < FLAGS.train_step:
       steps_and_files = {}
       filenames = tf.gfile.ListDirectory(FLAGS.output_dir)
@@ -368,6 +379,7 @@ def main(_):
               checkpoint_path=checkpoint_path)
           global_step = result["global_step"]
           tf.logging.info("***** Eval results *****")
+          writer.write("===== Evuations =====\n")
           for key in sorted(result.keys()):
             tf.logging.info("  %s = %s", key, str(result[key]))
             writer.write("%s = %s\n" % (key, str(result[key])))

@@ -10,6 +10,12 @@ export CURRENT_PWD=/home/ubuntu
 export GLUE_DIR=${CURRENT_PWD}/glue_data
 export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}
 
+if [ ! -d $OUTPUT_DIR  ];then
+  mkdir $OUTPUT_DIR
+else
+  echo $OUTPUT_DIR dir exist
+fi
+
 export BS=8
 export MSL=128
 export LR=5e-06
@@ -22,7 +28,7 @@ pip3 install -r requirements.txt
 set +x
 
 sudo CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
-    python3 -m albert.run_multigpus_classifier \
+sudo python3 -m albert.run_multigpus_classifier \
     --do_train=True \
     --do_eval=True \
     --strategy_type=mirror \
@@ -41,4 +47,4 @@ sudo CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
     --save_checkpoints_steps=100 \
-    2>&1 | tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log
+    2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log

@@ -9,7 +9,7 @@ export SQUAD_VERSION=2.0
 export CURRENT_PWD=/home/ubuntu
 
 export GLUE_DIR=${CURRENT_PWD}/SQUAD_data
-export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}
+export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}
 
 export BS=48
 export LR=5e-05
@@ -41,4 +41,4 @@ sudo python3 -m albert.run_squad_v${SQUAD_VERSION:0:1} \
     --spm_model_file=./30k-clean.model \
     --vocab_file=./30k-clean.vocab \
     --save_checkpoints_steps=100 \
-    2>&1 | tee ${OUTPUT_DIR}/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}.log
+    2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}.log

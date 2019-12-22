@@ -247,11 +247,12 @@ def main(_):
 
 
     # multiple gpus
-    NUM_GPUS = FLAGS.num_gpu_cores
+    NUM_GPUS = FLAGS.num_gpu_cores if FLAGS.strategy_type=='mirror' else 1
     using_customized_optimizer = None
     if NUM_GPUS > 1 and FLAGS.strategy_type == "mirror":
         os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(
             [str(i) for i in list(range(NUM_GPUS))])
+        # https://github.com/tensorflow/tensorflow/issues/21470#issuecomment-422506263
         strategy = tf.contrib.distribute.MirroredStrategy(
             num_gpus=NUM_GPUS,
             cross_device_ops=AllReduceCrossDeviceOps('nccl', num_packs=NUM_GPUS),
@@ -286,17 +287,21 @@ def main(_):
 
     train_examples = None
     total_time = None
+    num_train_steps = None
+    num_warmup_steps = None
 
     if FLAGS.do_train:
         train_examples = processor.get_train_examples(FLAGS.data_dir)
+        num_train_steps=FLAGS.train_step
+        num_warmup_steps=FLAGS.warmup_step
 
     model_fn = classifier_utils.model_fn_builder(
         albert_config=albert_config,
         num_labels=len(label_list),
         init_checkpoint=FLAGS.init_checkpoint,
         learning_rate=FLAGS.learning_rate,
-        num_train_steps=FLAGS.train_step,
-        num_warmup_steps=FLAGS.warmup_step,
+        num_train_steps=num_train_steps,
+        num_warmup_steps=num_warmup_steps,
         use_tpu=FLAGS.use_tpu,
         use_one_hot_embeddings=FLAGS.use_tpu,
         task_name=task_name,
@@ -434,9 +439,16 @@ def main(_):
         writer.write(f"total time with {NUM_GPUS} GPU(s): {total_time} seconds\n")
         avg_time_per_batch = np.mean(time_hist.times)
         writer.write(f"{FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch} instances/second with {NUM_GPUS} GPU(s)\n")
-
-
-
+        writer.write("===== Hyperparameters =====\n")
+        writer.write("Training batch size: {}\n".format(FLAGS.train_batch_size))
+        writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))
+        writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
+        writer.write("Num of GPU cores: {}\n".format(NUM_GPUS))
+        writer.write("Total time: {}\n".format(total_time))
+        writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
+        if num_train_steps and num_warmup_steps:
+            writer.write("Training steps: {}\n".format(num_train_steps))
+            writer.write("Warmup steps: {}\n".format(num_warmup_steps))
         while global_step < FLAGS.train_step:
           steps_and_files = {}
           filenames = tf.gfile.ListDirectory(FLAGS.output_dir)
@@ -474,7 +486,7 @@ def main(_):
               tf.logging.info(f"num_gpu_cores =  {NUM_GPUS}")
               tf.logging.info(f"total_time = {total_time}")
               tf.logging.info(f"speed = {FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch}")
-
+              writer.write("===== Evuations =====\n")
               for key in sorted(result.keys()):
                 tf.logging.info("  %s = %s", key, str(result[key]))
                 writer.write("%s = %s\n" % (key, str(result[key])))

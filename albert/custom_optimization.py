@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import re
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -71,6 +71,13 @@ def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps, fp16=Fals
         exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
 
     # REF: https://github.com/tensorflow/tensorflow/issues/25080
+    # if fp16:
+    #     loss_scale_manager = tf.contrib.mixed_precision.ExponentialUpdateLossScaleManager(
+    #         init_loss_scale=2 ** 32,
+    #         incr_every_n_steps=1000,
+    #         decr_every_n_nan_or_inf=2,
+    #         decr_ratio=0.5)
+    #     optimizer = tf.contrib.mixed_precision.LossScaleOptimizer(optimizer, loss_scale_manager)
 
     tvars = tf.trainable_variables()
     gvs = optimizer.compute_gradients(loss, tvars)
