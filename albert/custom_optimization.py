@@ -28,7 +28,7 @@ from tensorflow.python.ops import state_ops
 from tensorflow.python.ops import resource_variable_ops
 
 
-def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps, fp16=False):
+def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps, fp16=False, optimizer="adamw"):
     """Creates an optimizer training op."""
     global_step = tf.train.get_or_create_global_step()
 
@@ -62,13 +62,29 @@ def create_optimizer(loss, init_lr, num_train_steps, num_warmup_steps, fp16=Fals
     # It is recommended that you use this optimizer for fine tuning, since this
     # is how the model was trained (note that the Adam m/v variables are NOT
     # loaded from init_checkpoint.)
-    optimizer = AdamWeightDecayOptimizer(
-        learning_rate=learning_rate,
-        weight_decay_rate=0.01,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-6,
-        exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
+    if optimizer == "adamw":
+        tf.logging.info("using adamw")
+        optimizer = AdamWeightDecayOptimizer(
+            learning_rate=learning_rate,
+            weight_decay_rate=0.01,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-6,
+            exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
+    elif optimizer == "lamb":
+        tf.logging.info("using lamb")
+        optimizer = LAMBOptimizer(
+            learning_rate=learning_rate,
+            weight_decay_rate=0.01,
+            beta_1=0.9,
+            beta_2=0.999,
+            epsilon=1e-6,
+            exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
+    else:
+        raise ValueError("Not supported optimizer: ", optimizer)
+
+    if use_tpu:
+        optimizer = contrib_tpu.CrossShardOptimizer(optimizer)
 
     # REF: https://github.com/tensorflow/tensorflow/issues/25080
     # if fp16:

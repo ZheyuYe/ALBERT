@@ -21,7 +21,7 @@ pip3 install -r requirements.txt
 
 set +x
 
-sudo python3 -m albert.run_squad_v${SQUAD_VERSION:0:1} \
+sudo python3 -m albert.run_multigpus_squad_v${SQUAD_VERSION:0:1} \
     --do_train=True \
     --do_predict=True \
     --strategy_type=mirror \

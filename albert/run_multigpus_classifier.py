@@ -436,9 +436,7 @@ def main(_):
           checkpoint_path = None
         writer = tf.gfile.GFile(output_eval_file, "w")
 
-        writer.write(f"total time with {NUM_GPUS} GPU(s): {total_time} seconds\n")
         avg_time_per_batch = np.mean(time_hist.times)
-        writer.write(f"{FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch} instances/second with {NUM_GPUS} GPU(s)\n")
         writer.write("===== Hyperparameters =====\n")
         writer.write("Training batch size: {}\n".format(FLAGS.train_batch_size))
         writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))

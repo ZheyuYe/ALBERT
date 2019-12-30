@@ -747,7 +747,7 @@ def create_v1_model(albert_config, is_training, input_ids, input_mask,
 
 def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
                         num_train_steps, num_warmup_steps, use_tpu,
-                        use_one_hot_embeddings):
+                        use_one_hot_embeddings,customized=False, optimizer="adamw"):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -822,28 +822,51 @@ def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
       end_loss = compute_loss_sparse(end_logits, end_positions)
 
       total_loss = (start_loss + end_loss) / 2.0
+      train_op = None
+      if customized:
+          train_op = custom_optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu, optimizer)
+      else:
+          train_op = optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu, optimizer)
+      if use_tpu:
+          train_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          train_spec =tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+          )
+      return train_spec
 
-      train_op = optimization.create_optimizer(
-          total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
-
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          loss=total_loss,
-          train_op=train_op,
-          scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.PREDICT:
       predictions = {
           "unique_ids": unique_ids,
           "start_log_prob": start_logits,
           "end_log_prob": end_logits,
       }
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
+      if use_tpu:
+          output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+              mode=mode,
+              predictions={
+                  "probabilities": probabilities,
+                  "predictions": predictions
+              },
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          output_spec =tf.estimator.EstimatorSpec(
+              mode=mode, predictions=predictions)
+
+      return output_spec
     else:
       raise ValueError(
           "Only TRAIN and PREDICT modes are supported: %s" % (mode))
-
-    return output_spec
 
   return model_fn
 
@@ -1572,7 +1595,7 @@ def create_v2_model(albert_config, is_training, input_ids, input_mask,
 def v2_model_fn_builder(albert_config, init_checkpoint, learning_rate,
                         num_train_steps, num_warmup_steps, use_tpu,
                         use_one_hot_embeddings, max_seq_length, start_n_top,
-                        end_n_top, dropout_prob):
+                        end_n_top, dropout_prob, customized=False, optimizer="adamw"):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -1655,14 +1678,29 @@ def v2_model_fn_builder(albert_config, init_checkpoint, learning_rate,
       # note(zhiliny): by default multiply the loss by 0.5 so that the scale is
       # comparable to start_loss and end_loss
       total_loss += regression_loss * 0.5
-      train_op = optimization.create_optimizer(
-          total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
 
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          loss=total_loss,
-          train_op=train_op,
-          scaffold_fn=scaffold_fn)
+      train_op = None
+      if customized:
+          train_op = custom_optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu, optimizer)
+      else:
+          train_op = optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu, optimizer)
+      if use_tpu:
+          train_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          train_spec =tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+          )
+      return train_spec
+
     elif mode == tf.estimator.ModeKeys.PREDICT:
       predictions = {
           "unique_ids": features["unique_ids"],
@@ -1672,7 +1710,6 @@ def v2_model_fn_builder(albert_config, init_checkpoint, learning_rate,
           "end_top_log_probs": outputs["end_top_log_probs"],
           "cls_logits": outputs["cls_logits"]
       }
-
       if use_tpu:
         output_spec = contrib_tpu.TPUEstimatorSpec(
             mode=mode, predictions=predictions, scaffold_fn=scaffold_fn)
@@ -1680,11 +1717,10 @@ def v2_model_fn_builder(albert_config, init_checkpoint, learning_rate,
         output_spec = tf.estimator.EstimatorSpec(
             mode=mode, predictions=predictions)
       return output_spec
+
     else:
       raise ValueError(
           "Only TRAIN and PREDICT modes are supported: %s" % (mode))
-
-    return output_spec
 
   return model_fn
 

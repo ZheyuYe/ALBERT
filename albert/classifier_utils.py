@@ -874,10 +874,10 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
       train_op = None
       if customized:
           train_op = custom_optimization.create_optimizer(
-              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu)
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu, optimizer)
       else:
           train_op = optimization.create_optimizer(
-              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu,optimizer)
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu, optimizer)
       if use_tpu:
           train_spec = contrib_tpu.TPUEstimatorSpec(
               mode=mode,
