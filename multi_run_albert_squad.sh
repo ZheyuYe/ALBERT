@@ -8,10 +8,10 @@ export ALBERT_DIR=base
 export SQUAD_VERSION=2.0
 export CURRENT_PWD=/home/ubuntu
 
-export GLUE_DIR=${CURRENT_PWD}/SQUAD_data
+export SQUAD_DIR=${CURRENT_PWD}/SQuAD_data
 export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}
 
-export BS=48
+export BS=16
 export LR=5e-05
 export EPOCH=3.0
 export MSL=512

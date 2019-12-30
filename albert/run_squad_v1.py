@@ -427,7 +427,7 @@ def main(_):
       if not steps_and_files:
         tf.logging.info("found 0 file, global step: {}. Sleeping."
                         .format(global_step))
-        time.sleep(60)
+        time.sleep(1)
       else:
         for ele in sorted(steps_and_files.items()):
           step, checkpoint_path = ele
