@@ -37,9 +37,11 @@ from tensorflow.python.estimator.run_config import RunConfig
 from tensorflow.python.estimator.estimator import Estimator
 import numpy as np
 import time
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
 
+# set up the dynamic gpu usage
+from tensorflow.keras.backend import set_session
+gpu_options = tf.GPUOptions(allow_growth=True)
+set_session(tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)))
 
 class TimeHistory(tf.estimator.SessionRunHook):
     def __init__(self):
@@ -62,11 +64,6 @@ if six.PY2:
 else:
     import pickle
 # pylint: enable=g-import-not-at-top
-
-# set up the dynamic gpu usage
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-session = InteractiveSession(config=config)
 
 flags = tf.flags
 

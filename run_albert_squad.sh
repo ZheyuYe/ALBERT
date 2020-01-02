@@ -7,15 +7,15 @@ export VERSION=2
 export ALBERT_DIR=base
 export SQUAD_VERSION=2.0
 export STORAGE_BUCKET=gs://zheyu-albert
-
 export CURRENT_PWD=/content
-export SQUAD_DIR=${CURRENT_PWD}/SQuAD_data
-export OUTPUT_DIR=${STORAGE_BUCKET}/albert_output/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}
 
 export BS=48
 export LR=5e-05
 export EPOCH=3.0
 export MSL=512
+
+export SQUAD_DIR=${CURRENT_PWD}/SQuAD_data
+export OUTPUT_DIR=${STORAGE_BUCKET}/albert_output/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}_${BS}_${LR}
 
 pip3 install numpy
 pip3 install -r requirements.txt
@@ -42,5 +42,5 @@ sudo python3 -m albert.run_squad_v${SQUAD_VERSION:0:1} \
     --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
-    --save_checkpoints_steps=100 \
+    --save_checkpoints_steps=250 \
     2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}${SQUAD_VERSION}_${ALBERT_DIR}_v${VERSION}.log

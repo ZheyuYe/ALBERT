@@ -6,11 +6,13 @@ Cloned from [Google ALBERT](https://github.com/google-research/ALBERT) which onl
 
 1. reset the the [Estimator](https://github.com/ZheyuYe/ALBERT/blob/master/albert/run_multigpus_classifier.py#L316) and [EstimatorSpec](https://github.com/ZheyuYe/ALBERT/blob/master/albert/classifier_utils.py#L889) cause the oringinal one could ony suitable for single training device.
 
-2. Adapt MirroredStrategy into training progress as [here](https://github.com/ZheyuYe/ALBERT/blob/master/albert/run_multigpus_classifier.py#L253). Notice: the input data is batched by the global batch size, whereas the batch size setting in the parameters of `FLAGS` are local batch size. 
+2. Adapt MirroredStrategy into training progress as [here](https://github.com/ZheyuYe/ALBERT/blob/master/albert/run_multigpus_classifier.py#L253). Notice: the input data is batched by the global batch size, whereas the batch size setting in the parameters of `FLAGS` are local batch size.
 
 3. Transform the optimizer including AdamW and Lamb in [custom_optimization.py](https://github.com/ZheyuYe/ALBERT/blob/master/albert/custom_optimization.py)
 
-   
+4. NVIDIA Collective Communications Library (NCCL) are required for reduce options as [here](https://github.com/tensorflow/tensorflow/issues/21470#issuecomment-422506263)
+
+
 
 #### Data and Evalution scripts
 
@@ -40,19 +42,19 @@ simply use`python3 download_glue_data.py` to download **ALL GLUE TASKS**
    export ALBERT_DIR=base
    export VERSION=2
    export CURRENT_PWD=/home/ubuntu
-   
+
    export GLUE_DIR=${CURRENT_PWD}/glue_data
    export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}
-   
+
    export BS=8
    export MSL=128
    export LR=5e-06
    export WPSP=320
    export TSP=5336
-   
+
    pip3 install numpy
    pip3 install -r requirements.txt
-   
+
    sudo CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
        python3 -m albert.run_multigpus_classifier \
        --do_train=True \
@@ -73,4 +75,3 @@ simply use`python3 download_glue_data.py` to download **ALL GLUE TASKS**
        --vocab_file=./30k-clean.vocab \
        --spm_model_file=./30k-clean.model \
    ```
-

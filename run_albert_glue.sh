@@ -3,20 +3,20 @@ set -e
 set -x
 
 export TASK=CoLA
-export VERSION=1
+export VERSION=2
 export ALBERT_DIR=base
 
 export CURRENT_PWD=/content
 export STORAGE_BUCKET=gs://zheyu-albert
-
-export GLUE_DIR=${CURRENT_PWD}/glue_data
-export OUTPUT_DIR=${STORAGE_BUCKET}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}
 
 export BS=32
 export MSL=128
 export LR=1e-05
 export WPSP=630
 export TSP=10672
+
+export GLUE_DIR=${CURRENT_PWD}/glue_data
+export OUTPUT_DIR=${STORAGE_BUCKET}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}_${BS}_${LR}
 
 pip3 install numpy
 pip3 install -r requirements.txt
@@ -43,5 +43,5 @@ sudo python3 -m albert.run_classifier \
     --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \
     --spm_model_file=./30k-clean.model \
-    --save_checkpoints_steps=100 \
+    --save_checkpoints_steps=250 \
     2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log
