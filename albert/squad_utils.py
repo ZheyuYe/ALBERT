@@ -264,6 +264,8 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
             f = np.zeros((max_n, max_m), dtype=np.float32)
 
         g = {}
+        # the dictionary g={} here is to record the prefect result
+        # with 2 representing matched and 1 representing in the tolerance of maximum mismatch distance.
 
         def _lcs_match(max_dist, n=n, m=m):
             """Longest-common-substring algorithm."""
@@ -277,7 +279,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
                 # note(zhiliny):
                 # unlike standard LCS, this is specifically optimized for the setting
                 # because the mismatch between sentence pieces and original text will
-                # be small
+                # be small, that is small than the maximum distance.
                 for j in range(i - max_dist, i + max_dist):
                     if j >= m or j < 0:
                         continue
@@ -346,8 +348,10 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
             tok_end_position = 0
 
         if is_training and not example.is_impossible:
+            # if the question is unanswerable
             start_position = example.start_position
             end_position = start_position + len(example.orig_answer_text) - 1
+            # The bert method as https://github.com/google-research/bert/blob/master/run_squad.py#L343
 
             start_chartok_pos = _convert_index(orig_to_chartok_index, start_position,
                                                is_start=True)
