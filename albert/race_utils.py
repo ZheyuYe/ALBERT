@@ -22,10 +22,7 @@ from __future__ import print_function
 import collections
 import json
 import os
-import classifier_utils
-import modeling
-import optimization
-import tokenization
+from albert import classifier_utils, modeling, tokenization, custom_optimization
 import tensorflow.compat.v1 as tf
 from tensorflow.contrib import tpu as contrib_tpu
 
@@ -99,6 +96,20 @@ class RaceProcessor(object):
       return tokenization.preprocess_text(text, lower=self.do_lower_case)
     else:
       return tokenization.convert_to_unicode(text)
+  def Merge_file(self,filepath,outfile):
+    print('filenum:',len([lists for lists in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, lists))]))
+    count = 0
+    k = open(outfile, 'a+')
+    for parent, dirnames, filenames in os.walk(filepath):
+        for filepath in filenames:
+            txtPath = os.path.join(parent, filepath)
+            f = open(txtPath)
+            curline = f.read()
+            if curline.strip():
+                count += 1
+                k.write(curline.strip()+"\n")
+    print(count)
+    k.close()
 
   def read_examples(self, data_dir):
     """Read examples from RACE json files."""
@@ -107,8 +118,10 @@ class RaceProcessor(object):
       if level == "middle" and self.high_only: continue
       if level == "high" and self.middle_only: continue
       cur_dir = os.path.join(data_dir, level)
-
       cur_path = os.path.join(cur_dir, "all.txt")
+      if not os.path.exists(cur_path):
+          self.Merge_file(cur_dir,cur_path)
+
       with tf.gfile.Open(cur_path) as f:
         for line in f:
           cur_data = json.loads(line.strip())
@@ -337,7 +350,7 @@ def create_model(albert_config, is_training, input_ids, input_mask, segment_ids,
 
 def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
                      num_train_steps, num_warmup_steps, use_tpu,
-                     use_one_hot_embeddings, max_seq_length, dropout_prob):
+                     use_one_hot_embeddings, max_seq_length, dropout_prob,customized=False):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -390,15 +403,29 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
 
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
+      train_op = None
+      if customized:
+          train_op = custom_optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu)
+      else:
+          train_op = optimization.create_optimizer(
+              total_loss, learning_rate, num_train_steps, num_warmup_steps,use_tpu)
 
-      train_op = optimization.create_optimizer(
-          total_loss, learning_rate, num_train_steps, num_warmup_steps, use_tpu)
+      if use_tpu:
+          train_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          train_spec =tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              train_op=train_op,
+          )
+      return train_spec
 
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          loss=total_loss,
-          train_op=train_op,
-          scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
       def metric_fn(per_example_loss, label_ids, logits, is_real_example):
         predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
@@ -412,20 +439,41 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
             "eval_loss": loss,
         }
 
-      eval_metrics = (metric_fn,
-                      [per_example_loss, label_ids, logits, is_real_example])
+      metric_args = [per_example_loss, label_ids,
+                     logits, is_real_example]
+      if use_tpu:
+          eval_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              eval_metrics=(metric_fn, metric_args),
+              scaffold_fn=scaffold_fn)
+      else:
+          eval_spec = tf.estimator.EstimatorSpec(
+              mode=mode,
+              loss=total_loss,
+              eval_metric_ops=metric_fn(*metric_args))
+
+      return eval_spec
+
       output_spec = contrib_tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,
           eval_metrics=eval_metrics,
           scaffold_fn=scaffold_fn)
     else:
-      output_spec = contrib_tpu.TPUEstimatorSpec(
-          mode=mode,
-          predictions={"probabilities": probabilities,
-                       "predictions": predictions},
-          scaffold_fn=scaffold_fn)
-    return output_spec
+      if use_tpu:
+          output_spec = contrib_tpu.TPUEstimatorSpec(
+              mode=mode,
+              predictions={
+                  "probabilities": probabilities,
+                  "predictions": predictions
+              },
+              scaffold_fn=scaffold_fn,
+          )
+      else:
+          output_spec =tf.estimator.EstimatorSpec(
+              mode=mode, predictions=predictions)
+
+      return output_spec
 
   return model_fn
-

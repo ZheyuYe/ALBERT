@@ -2,19 +2,20 @@
 set -e
 set -x
 
-export TASK=CoLA
+export TASK=RACE
 export ALBERT_DIR=base
 export VERSION=2
 export CURRENT_PWD=/home/ubuntu
 
-export BS=8
+export BS=4
 GBS=$(($BS * 8))
-export MSL=128
-export LR=5e-06
-export WPSP=320
-export TSP=5336
+export MSL=512
+export MQL=128
+export LR=2e-05
+export WPSP=1000
+export TSP=12000
 
-export GLUE_DIR=${CURRENT_PWD}/glue_data
+export RACE_DIR=${CURRENT_PWD}/race_data
 export OUTPUT_DIR=${CURRENT_PWD}/albert_output/${TASK}_${ALBERT_DIR}_v${VERSION}_${GBS}_${LR}
 
 if [ ! -d $OUTPUT_DIR  ];then
@@ -28,16 +29,17 @@ pip3 install -r requirements.txt
 
 set +x
 
-sudo python3 -m albert.run_multigpus_classifier \
+sudo python3 -m albert.run_multigpus_race \
     --do_train=True \
     --do_eval=True \
     --strategy_type=mirror \
     --num_gpu_cores=8 \
-    --data_dir=${GLUE_DIR} \
-    --cached_dir=${CURRENT_PWD}/cached_albert_tfrecord \
-    --task_name=${TASK} \
+    --train_feature_file=${CURRENT_PWD}/cached_albert_tfrecord/${TASK}_train.tf_record \
+    --eval_feature_file=${CURRENT_PWD}/cached_albert_tfrecord/${TASK}_eval.tf_record \
+    --data_dir=${RACE_DIR} \
     --output_dir=${OUTPUT_DIR} \
     --max_seq_length=${MSL} \
+    --max_qa_length=${MQL} \
     --train_step=${TSP} \
     --warmup_step=${WPSP} \
     --train_batch_size=${BS} \

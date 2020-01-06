@@ -287,21 +287,17 @@ def main(_):
 
     train_examples = None
     total_time = None
-    num_train_steps = None
-    num_warmup_steps = None
 
     if FLAGS.do_train:
         train_examples = processor.get_train_examples(FLAGS.data_dir)
-        num_train_steps=FLAGS.train_step
-        num_warmup_steps=FLAGS.warmup_step
 
     model_fn = classifier_utils.model_fn_builder(
         albert_config=albert_config,
         num_labels=len(label_list),
         init_checkpoint=FLAGS.init_checkpoint,
         learning_rate=FLAGS.learning_rate,
-        num_train_steps=num_train_steps,
-        num_warmup_steps=num_warmup_steps,
+        num_train_steps=FLAGS.train_step,
+        num_warmup_steps=FLAGS.warmup_step,
         use_tpu=FLAGS.use_tpu,
         use_one_hot_embeddings=FLAGS.use_tpu,
         task_name=task_name,
@@ -312,7 +308,7 @@ def main(_):
     # or GPU.
     if FLAGS.use_tpu and FLAGS.tpu_name:
         tf.logging.info("Use TPUEstimator")
-        estimator = tf.contrib.tpu.TPUEstimator(
+        estimator = contrib_tpu.TPUEstimator(
             use_tpu=FLAGS.use_tpu,
             model_fn=model_fn,
             config=run_config,
@@ -444,9 +440,9 @@ def main(_):
         writer.write("Num of GPU cores: {}\n".format(NUM_GPUS))
         writer.write("Total time: {}\n".format(total_time))
         writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
-        if num_train_steps and num_warmup_steps:
-            writer.write("Training steps: {}\n".format(num_train_steps))
-            writer.write("Warmup steps: {}\n".format(num_warmup_steps))
+        if FLAGS.train_step and FLAGS.warmup_step :
+            writer.write("Training steps: {}\n".format(FLAGS.train_step))
+            writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step)))
         while global_step < FLAGS.train_step:
           steps_and_files = {}
           filenames = tf.gfile.ListDirectory(FLAGS.output_dir)

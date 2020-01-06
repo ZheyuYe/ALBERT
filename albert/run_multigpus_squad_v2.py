@@ -335,7 +335,7 @@ def main(_):
     # or GPU.
     if FLAGS.use_tpu and FLAGS.tpu_name:
         tf.logging.info("Use TPUEstimator")
-        estimator = tf.contrib.tpu.TPUEstimator(
+        estimator = contrib_tpu.TPUEstimator(
             use_tpu=FLAGS.use_tpu,
             model_fn=model_fn,
             config=run_config,

@@ -867,9 +867,7 @@ def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
             if use_tpu:
                 output_spec = contrib_tpu.TPUEstimatorSpec(
                     mode=mode,
-                    predictions={
-                        "predictions": predictions
-                    },
+                    predictions=predictions,
                     scaffold_fn=scaffold_fn,
                 )
             else:

@@ -982,7 +982,7 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
     else:
 
       if use_tpu:
-          output_spec = tf.contrib.tpu.TPUEstimatorSpec(
+          output_spec = contrib_tpu.TPUEstimatorSpec(
               mode=mode,
               predictions={
                   "probabilities": probabilities,
