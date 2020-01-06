@@ -868,7 +868,6 @@ def v1_model_fn_builder(albert_config, init_checkpoint, learning_rate,
                 output_spec = contrib_tpu.TPUEstimatorSpec(
                     mode=mode,
                     predictions={
-                        "probabilities": probabilities,
                         "predictions": predictions
                     },
                     scaffold_fn=scaffold_fn,
