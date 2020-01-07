@@ -271,7 +271,7 @@ def main(_):
           num_shards=FLAGS.num_tpu_cores,
           per_host_input_for_training=is_per_host),
       train_distribute=strategy,
-      # eval_distribute=strategy, #get error during evaluation
+      eval_distribute=strategy, #get error during evaluation
   )
 
   train_examples = None

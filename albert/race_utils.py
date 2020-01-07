@@ -22,7 +22,7 @@ from __future__ import print_function
 import collections
 import json
 import os
-from albert import classifier_utils, modeling, tokenization, custom_optimization
+from albert import classifier_utils, modeling, tokenization, custom_optimization, optimization
 import tensorflow.compat.v1 as tf
 from tensorflow.contrib import tpu as contrib_tpu
 

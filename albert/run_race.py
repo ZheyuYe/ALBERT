@@ -20,11 +20,7 @@ from __future__ import print_function
 
 import os
 import time
-import classifier_utils
-import modeling
-import race_utils
-import tokenization
-import gcs_utils
+from albert import classifier_utils, modeling, tokenization, race_utils, gcs_utils
 import tensorflow as tf
 from tensorflow.contrib import cluster_resolver as contrib_cluster_resolver
 from tensorflow.contrib import tpu as contrib_tpu
@@ -350,7 +346,7 @@ def main(_):
     writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
     if FLAGS.train_step and FLAGS.warmup_step :
         writer.write("Training steps: {}\n".format(FLAGS.train_step))
-        writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step)))
+        writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step))
 
     while global_step < FLAGS.train_step:
       steps_and_files = {}

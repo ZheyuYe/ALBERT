@@ -281,7 +281,7 @@ def main(_):
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host),
         train_distribute=strategy,
-        # eval_distribute=strategy, #get error during evaluation
+        eval_distribute=strategy, #get error during evaluation
     )
 
 
@@ -442,7 +442,7 @@ def main(_):
         writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
         if FLAGS.train_step and FLAGS.warmup_step :
             writer.write("Training steps: {}\n".format(FLAGS.train_step))
-            writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step)))
+            writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step))
         while global_step < FLAGS.train_step:
           steps_and_files = {}
           filenames = tf.gfile.ListDirectory(FLAGS.output_dir)

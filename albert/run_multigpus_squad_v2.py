@@ -42,7 +42,7 @@ import numpy as np
 import time
 
 # set up the dynamic gpu usage
-from tensorflow.keras.backend import set_session 
+from tensorflow.keras.backend import set_session
 gpu_options = tf.GPUOptions(allow_growth=True)
 set_session(tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)))
 
@@ -298,7 +298,7 @@ def main(_):
             num_shards=FLAGS.num_tpu_cores,
             per_host_input_for_training=is_per_host),
             train_distribute=strategy,
-            # eval_distribute=strategy, #get error during evaluation
+            eval_distribute=strategy, #get error during evaluation
     )
 
     train_examples = None

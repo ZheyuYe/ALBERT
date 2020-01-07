@@ -25,25 +25,24 @@ pip3 install -r requirements.txt
 set +x
 
 sudo python3 -m albert.run_race \
---do_train=True \
---do_eval=True \
---use_tpu=True \
---tpu_name=grpc://10.14.119.162:8470 \
---num_tpu_cores=8 \
---train_feature_file=${CURRENT_PWD}/cached_albert_tfrecord/${TASK}_train.tf_record \
---eval_feature_file=${CURRENT_PWD}/cached_albert_tfrecord/${TASK}_eval.tf_record \
---data_dir=${RACE_DIR} \
---output_dir=${OUTPUT_DIR} \
---max_seq_length=${MSL} \
---max_qa_length=${MQL} \
---train_step=${TSP} \
---warmup_step=${WPSP} \
---train_batch_size=${BS} \
---learning_rate=${LR} \
---optimizer=lamb \
---albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
---init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
---vocab_file=./30k-clean.vocab \
---spm_model_file=./30k-clean.model \
---save_checkpoints_steps=250 \
-2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log
+    --do_train=True \
+    --do_eval=True \
+    --use_tpu=True \
+    --tpu_name=grpc://10.77.128.226:8470 \
+    --num_tpu_cores=8 \
+    --train_feature_file=${STORAGE_BUCKET}/cached_albert_tfrecord/${TASK}_train.tf_record \
+    --eval_feature_file=${STORAGE_BUCKET}/cached_albert_tfrecord/${TASK}_eval.tf_record \
+    --data_dir=${RACE_DIR} \
+    --output_dir=${OUTPUT_DIR} \
+    --max_seq_length=${MSL} \
+    --max_qa_length=${MQL} \
+    --train_step=${TSP} \
+    --warmup_step=${WPSP} \
+    --train_batch_size=${BS} \
+    --learning_rate=${LR} \
+    --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
+    --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
+    --vocab_file=./30k-clean.vocab \
+    --spm_model_file=./30k-clean.model \
+    --save_checkpoints_steps=250 \
+    2>&1 | sudo tee ${OUTPUT_DIR}/${TASK}_${ALBERT_DIR}_v${VERSION}.log
