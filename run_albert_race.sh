@@ -13,6 +13,7 @@ export BS=32
 export MSL=512
 export MQL=128
 export LR=2e-05
+export ALBERT_DP=0
 export WPSP=1000
 export TSP=12000
 
@@ -40,6 +41,7 @@ sudo python3 -m albert.run_race \
     --warmup_step=${WPSP} \
     --train_batch_size=${BS} \
     --learning_rate=${LR} \
+    --albert_dropout_prob=${ALBERT_DP} \
     --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
     --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \

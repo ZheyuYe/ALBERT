@@ -168,6 +168,10 @@ flags.DEFINE_integer(
     "num_gpu_cores", 1,
     "Total number of GPU cores to use.")
 
+flags.DEFINE_float(
+    "albert_dropout_prob", 0,
+    "The probability of dropping during fine-tuning, which is set as 0.1 for QQP, RTE, WNLI and RACE")
+
 class PaddingInputExample(object):
     """Fake example so the num input examples is a multiple of the batch size.
 
@@ -220,6 +224,8 @@ def main(_):
             "At least one of `do_train`, `do_eval` or `do_predict' must be True.")
 
     albert_config = modeling.AlbertConfig.from_json_file(FLAGS.albert_config_file)
+    albert_config.hidden_dropout_prob = FLAGS.albert_dropout_prob
+    albert_config.attention_probs_dropout_prob = FLAGS.albert_dropout_prob
 
     if FLAGS.max_seq_length > albert_config.max_position_embeddings:
         raise ValueError(

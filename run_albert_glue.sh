@@ -12,6 +12,7 @@ export STORAGE_BUCKET=gs://zheyu-albert
 export BS=32
 export MSL=128
 export LR=1e-05
+export ALBERT_DP=0
 export WPSP=630
 export TSP=10672
 
@@ -38,7 +39,7 @@ sudo python3 -m albert.run_classifier \
     --warmup_step=${WPSP} \
     --train_batch_size=${BS} \
     --learning_rate=${LR} \
-    --optimizer=lamb \
+    --albert_dropout_prob=${ALBERT_DP} \
     --albert_config_file=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
     --init_checkpoint=${STORAGE_BUCKET}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \

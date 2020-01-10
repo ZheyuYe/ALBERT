@@ -13,6 +13,7 @@ export EBS=4
 GBS=$(($BS * $NUM_GPUS))
 export MSL=128
 export LR=5e-06
+export ALBERT_DP=0
 export WPSP=320
 export TSP=5336
 
@@ -45,6 +46,7 @@ sudo python3 -m albert.run_multigpus_classifier \
     --train_batch_size=${BS} \
     --eval_batch_size=${EBS} \
     --learning_rate=${LR} \
+    --albert_dropout_prob=${ALBERT_DP} \
     --albert_config_file=${CURRENT_PWD}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/albert_config.json \
     --init_checkpoint=${CURRENT_PWD}/pretrained_model/albert_${ALBERT_DIR}_v${VERSION}/model.ckpt-best \
     --vocab_file=./30k-clean.vocab \
