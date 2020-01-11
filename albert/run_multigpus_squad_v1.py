@@ -487,9 +487,10 @@ def main(_):
         writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))
         writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
         writer.write("Num of GPU cores: {}\n".format(NUM_GPUS))
-        writer.write("Total time: {}\n".format(total_time))
-        writer.write("Speed: {}\n".format(
-            FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
+        if FLAGS.do_train:
+            avg_time_per_batch = np.mean(time_hist.times)
+            writer.write("Total time: {}\n".format(total_time))
+            writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
         if num_train_steps and num_warmup_steps:
             writer.write("Training steps: {}\n".format(num_train_steps))
             writer.write("Warmup steps: {}\n".format(num_warmup_steps))
@@ -563,9 +564,6 @@ def main(_):
 
         tf.logging.info("***** Final Eval results *****\n")
         tf.logging.info(f"num_gpu_cores =  {NUM_GPUS}")
-        tf.logging.info(f"total_time = {total_time}")
-        tf.logging.info(
-            f"speed = {FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch}")
         writer.write("===== Evuations =====\n")
         for key in sorted(result.keys()):
             tf.logging.info("  %s = %s", key, str(result[key]))

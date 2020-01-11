@@ -141,6 +141,10 @@ flags.DEFINE_float(
     "albert_dropout_prob", 0,
     "The probability of dropping during fine-tuning, which is set as 0.1 for QQP, RTE, WNLI and RACE")
 
+flags.DEFINE_bool(
+    "discard_classifier_weights", False,
+    "Whether to load checkpoint of MNLI task, specified for fine-tuning RTE, MRPC and STS-B")
+
 def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -214,12 +218,8 @@ def main(_):
           per_host_input_for_training=is_per_host))
 
   train_examples = None
-  num_train_steps  =  None
-  num_warmup_steps = None
   if FLAGS.do_train:
     train_examples = processor.get_train_examples(FLAGS.data_dir)
-    num_train_steps = FLAGS.train_step
-    num_warmup_steps = FLAGS.warmup_step
   model_fn = classifier_utils.model_fn_builder(
       albert_config=albert_config,
       num_labels=len(label_list),
@@ -230,7 +230,8 @@ def main(_):
       use_tpu=FLAGS.use_tpu,
       use_one_hot_embeddings=FLAGS.use_tpu,
       task_name=task_name,
-      optimizer=FLAGS.optimizer)
+      optimizer=FLAGS.optimizer,
+      discard_classifier_weights=FLAGS.discard_classifier_weights)
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
@@ -347,9 +348,9 @@ def main(_):
     writer.write("Training batch size: {}\n".format(FLAGS.train_batch_size))
     writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))
     writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
-    if num_train_steps and num_warmup_steps:
-        writer.write("Training steps: {}\n".format(num_train_steps))
-        writer.write("Warmup steps: {}\n".format(num_warmup_steps))
+    if FLAGS.train_step and FLAGS.warmup_step:
+        writer.write("Training steps: {}\n".format(FLAGS.train_step))
+        writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step))
     while global_step < FLAGS.train_step:
       steps_and_files = {}
       filenames = tf.gfile.ListDirectory(FLAGS.output_dir)

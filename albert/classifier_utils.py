@@ -818,7 +818,7 @@ def create_model(albert_config, is_training, input_ids, input_mask, segment_ids,
 
 def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
                      num_train_steps, num_warmup_steps, use_tpu,
-                     use_one_hot_embeddings, task_name, customized=False, optimizer="adamw"):
+                     use_one_hot_embeddings, task_name, customized=False, optimizer="adamw", discard_classifier_weights=False):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -850,7 +850,8 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
     scaffold_fn = None
     if init_checkpoint:
       (assignment_map, initialized_variable_names
-      ) = modeling.get_assignment_map_from_checkpoint(tvars, init_checkpoint)
+      ) = modeling.get_assignment_map_from_checkpoint(tvars, init_checkpoint, discard_classifier_weights=discard_classifier_weights)
+
       if use_tpu:
 
         def tpu_scaffold():

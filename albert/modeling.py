@@ -29,6 +29,7 @@ import math
 import re
 import numpy as np
 import six
+import time
 from six.moves import range
 import tensorflow.compat.v1 as tf
 from tensorflow.contrib import layers as contrib_layers
@@ -346,7 +347,7 @@ def get_activation(activation_string):
     raise ValueError("Unsupported activation: %s" % act)
 
 
-def get_assignment_map_from_checkpoint(tvars, init_checkpoint, num_of_group=0):
+def get_assignment_map_from_checkpoint(tvars, init_checkpoint, num_of_group=0, discard_classifier_weights=False):
   """Compute the union of the current variables and checkpoint variables."""
   assignment_map = {}
   initialized_variable_names = {}
@@ -368,8 +369,14 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint, num_of_group=0):
   else:
     assignment_map = collections.OrderedDict()
 
+  if discard_classifier_weights:
+      discard_items = 'output_'
+  else:
+      discard_items = 'abcdefghijklmnopqrstuvwxyz'
+      #which is not in the original name_to_variable,
+      #so this step actually do nothing buth restore all weights from checkpoint
   for name in name_to_variable:
-    if name in init_vars_name:
+    if name in init_vars_name and discard_items not in name:
       tvar_name = name
     elif (re.sub(r"/group_\d+/", "/group_0/",
                  six.ensure_str(name)) in init_vars_name and

@@ -414,8 +414,10 @@ def main(_):
     writer.write("Max qa length: {}\n".format(FLAGS.max_qa_length))
     writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
     writer.write("Num of GPU cores: {}\n".format(NUM_GPUS))
-    writer.write("Total time: {}\n".format(total_time))
-    writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
+    if FLAGS.do_train:
+        avg_time_per_batch = np.mean(time_hist.times)
+        writer.write("Total time: {}\n".format(total_time))
+        writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
     if FLAGS.train_step and FLAGS.warmup_step:
         writer.write("Training steps: {}\n".format(FLAGS.train_step))
         writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step))

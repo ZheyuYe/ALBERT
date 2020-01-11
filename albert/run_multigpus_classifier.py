@@ -172,6 +172,10 @@ flags.DEFINE_float(
     "albert_dropout_prob", 0,
     "The probability of dropping during fine-tuning, which is set as 0.1 for QQP, RTE, WNLI and RACE")
 
+flags.DEFINE_bool(
+    "discard_classifier_weights", False,
+    "Whether to load checkpoint of MNLI task, specified for fine-tuning RTE, MRPC and STS-B")
+
 class PaddingInputExample(object):
     """Fake example so the num input examples is a multiple of the batch size.
 
@@ -308,7 +312,8 @@ def main(_):
         use_one_hot_embeddings=FLAGS.use_tpu,
         task_name=task_name,
         customized=using_customized_optimizer,
-        optimizer=FLAGS.optimizer)
+        optimizer=FLAGS.optimizer,
+        discard_classifier_weights=FLAGS.discard_classifier_weights)
 
     # If TPU is not available, this will fall back to normal Estimator on CPU
     # or GPU.
@@ -438,14 +443,15 @@ def main(_):
           checkpoint_path = None
         writer = tf.gfile.GFile(output_eval_file, "w")
 
-        avg_time_per_batch = np.mean(time_hist.times)
         writer.write("===== Hyperparameters =====\n")
         writer.write("Training batch size: {}\n".format(FLAGS.train_batch_size))
         writer.write("Max sequence length: {}\n".format(FLAGS.max_seq_length))
         writer.write("Learning rate: {}\n".format(FLAGS.learning_rate))
         writer.write("Num of GPU cores: {}\n".format(NUM_GPUS))
-        writer.write("Total time: {}\n".format(total_time))
-        writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
+        if FLAGS.do_train:
+            avg_time_per_batch = np.mean(time_hist.times)
+            writer.write("Total time: {}\n".format(total_time))
+            writer.write("Speed: {}\n".format(FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch))
         if FLAGS.train_step and FLAGS.warmup_step :
             writer.write("Training steps: {}\n".format(FLAGS.train_step))
             writer.write("Warmup steps: {}\n".format(FLAGS.warmup_step))
@@ -484,8 +490,6 @@ def main(_):
               global_step = result["global_step"]
               tf.logging.info("***** Eval results *****")
               tf.logging.info(f"num_gpu_cores =  {NUM_GPUS}")
-              tf.logging.info(f"total_time = {total_time}")
-              tf.logging.info(f"speed = {FLAGS.train_batch_size * NUM_GPUS / avg_time_per_batch}")
               writer.write("===== Evuations =====\n")
               for key in sorted(result.keys()):
                 tf.logging.info("  %s = %s", key, str(result[key]))
