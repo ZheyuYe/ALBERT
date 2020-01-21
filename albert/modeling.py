@@ -221,7 +221,7 @@ class AlbertModel(object):
 
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
-        self.all_encoder_layers = transformer_model(
+        self.all_encoder_layers, self.prev_output = transformer_model(
             input_tensor=self.embedding_output,
             attention_mask=input_mask,
             hidden_size=config.hidden_size,
@@ -294,6 +294,8 @@ class AlbertModel(object):
     return self.output_embedding_table
   def get_inner_embedding(self):
     return self.inner_embedding
+  def get_prev_output(self):
+    return self.prev_output
 
 
 def gelu(x):
@@ -1030,6 +1032,7 @@ def transformer_model(input_tensor,
         None, name="embedding_hidden_mapping_in")
   else:
     prev_output = input_tensor
+  checked_prev_output = prev_output
   with tf.variable_scope("transformer", reuse=tf.AUTO_REUSE):
     for layer_idx in range(num_hidden_layers):
       group_idx = int(layer_idx / num_hidden_layers * num_hidden_groups)
@@ -1046,9 +1049,9 @@ def transformer_model(input_tensor,
               prev_output = layer_output
               all_layer_outputs.append(layer_output)
   if do_return_all_layers:
-    return all_layer_outputs
+    return all_layer_outputs, checked_prev_output
   else:
-    return all_layer_outputs[-1]
+    return all_layer_outputs[-1], checked_prev_output
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):
