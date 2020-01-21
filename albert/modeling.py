@@ -205,7 +205,7 @@ class AlbertModel(object):
 
         # Add positional embeddings and token type embeddings, then layer
         # normalize and perform dropout.
-        self.embedding_output, self.token_type_embeddings, self.position_embeddings, self.inner_embedding = embedding_postprocessor(
+        self.embedding_output,  self.inner_embedding = embedding_postprocessor(
             input_tensor=self.word_embedding_output,
             use_token_type=True,
             token_type_ids=token_type_ids,
@@ -290,10 +290,6 @@ class AlbertModel(object):
     """
     return self.embedding_output
 
-  def get_token_type_embedding(self):
-      return self.token_type_embeddings
-  def get_position_embedding(self):
-      return self.position_embeddings
   def get_embedding_table(self):
     return self.output_embedding_table
   def get_inner_embedding(self):
@@ -628,7 +624,7 @@ def embedding_postprocessor(input_tensor,
       output += position_embeddings
 
   final_output = layer_norm_and_dropout(output, dropout_prob)
-  return final_output, token_type_embeddings, position_embeddings, output
+  return final_output, output
 
 
 def dense_layer_3d(input_tensor,
