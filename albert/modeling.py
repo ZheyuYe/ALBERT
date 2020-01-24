@@ -790,7 +790,7 @@ def dot_product_attention(q, k, v, bias, dropout_rate=0.0):
 
   attention_probs = tf.nn.softmax(logits, name="attention_probs")
   attention_probs = dropout(attention_probs, dropout_rate)
-  return tf.matmul(attention_probs, v)
+  return tf.matmul(attention_probs, v), logits
 
 
 def attention_layer(from_tensor,
@@ -878,10 +878,10 @@ def attention_layer(from_tensor,
     attention_mask = tf.reshape(
         attention_mask, [batch_size, 1, to_seq_length, 1])
     # 'new_embeddings = [B, N, F, H]'
-  new_embeddings = dot_product_attention(q, k, v, attention_mask,
+  new_embeddings, logits = dot_product_attention(q, k, v, attention_mask,
                                          attention_probs_dropout_prob)
 
-  return tf.transpose(new_embeddings, [0, 2, 1, 3]), [q, k, v]
+  return tf.transpose(new_embeddings, [0, 2, 1, 3]), logits
 
 
 def attention_ffn_block(layer_input,
@@ -920,7 +920,7 @@ def attention_ffn_block(layer_input,
 
   with tf.variable_scope("attention_1"):
     with tf.variable_scope("self"):
-      attention_output, qkv = attention_layer(
+      attention_output, logits = attention_layer(
           from_tensor=layer_input,
           to_tensor=layer_input,
           attention_mask=attention_mask,
@@ -959,7 +959,7 @@ def attention_ffn_block(layer_input,
             name="dense")
       ffn_output = dropout(ffn_output, hidden_dropout_prob)
   ffn_output = layer_norm(ffn_output + attention_output)
-  return ffn_output, qkv
+  return ffn_output, logits
 
 
 def transformer_model(input_tensor,
@@ -1040,7 +1040,7 @@ def transformer_model(input_tensor,
           layer_output = prev_output
           for inner_group_idx in range(inner_group_num):
             with tf.variable_scope("inner_group_%d" % inner_group_idx):
-              layer_output, qkv  = attention_ffn_block(
+              layer_output, logits  = attention_ffn_block(
                   layer_output, hidden_size, attention_mask,
                   num_attention_heads, attention_head_size,
                   attention_probs_dropout_prob, intermediate_size,
@@ -1048,9 +1048,9 @@ def transformer_model(input_tensor,
               prev_output = layer_output
               all_layer_outputs.append(layer_output)
   if do_return_all_layers:
-    return all_layer_outputs, qkv
+    return all_layer_outputs, logits
   else:
-    return all_layer_outputs[-1], qkv
+    return all_layer_outputs[-1], logits
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):
