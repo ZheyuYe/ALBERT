@@ -881,7 +881,7 @@ def attention_layer(from_tensor,
   new_embeddings = dot_product_attention(q, k, v, attention_mask,
                                          attention_probs_dropout_prob)
 
-  return tf.transpose(new_embeddings, [0, 2, 1, 3]), q
+  return tf.transpose(new_embeddings, [0, 2, 1, 3]), [q, k, v]
 
 
 def attention_ffn_block(layer_input,
@@ -920,7 +920,7 @@ def attention_ffn_block(layer_input,
 
   with tf.variable_scope("attention_1"):
     with tf.variable_scope("self"):
-      attention_output, q = attention_layer(
+      attention_output, qkv = attention_layer(
           from_tensor=layer_input,
           to_tensor=layer_input,
           attention_mask=attention_mask,
@@ -959,7 +959,7 @@ def attention_ffn_block(layer_input,
             name="dense")
       ffn_output = dropout(ffn_output, hidden_dropout_prob)
   ffn_output = layer_norm(ffn_output + attention_output)
-  return ffn_output, q
+  return ffn_output, qkv
 
 
 def transformer_model(input_tensor,
@@ -1040,7 +1040,7 @@ def transformer_model(input_tensor,
           layer_output = prev_output
           for inner_group_idx in range(inner_group_num):
             with tf.variable_scope("inner_group_%d" % inner_group_idx):
-              layer_output, q  = attention_ffn_block(
+              layer_output, qkv  = attention_ffn_block(
                   layer_output, hidden_size, attention_mask,
                   num_attention_heads, attention_head_size,
                   attention_probs_dropout_prob, intermediate_size,
@@ -1048,9 +1048,9 @@ def transformer_model(input_tensor,
               prev_output = layer_output
               all_layer_outputs.append(layer_output)
   if do_return_all_layers:
-    return all_layer_outputs, q
+    return all_layer_outputs, qkv
   else:
-    return all_layer_outputs[-1], q
+    return all_layer_outputs[-1], qkv
 
 
 def get_shape_list(tensor, expected_rank=None, name=None):
